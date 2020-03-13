@@ -19,6 +19,7 @@ require (
 	github.com/jsdidierlaurent/echo-middleware v1.0.3
 	github.com/jsdidierlaurent/go-pingdom v1.0.1-0.20191016073917-beef4d2f78cd
 	github.com/jsdidierlaurent/golang-jenkins v0.0.0-20190826091201-0ea4c9df4e09
+	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/echo/v4 v4.1.7
 	github.com/labstack/gommon v0.2.9
 	github.com/orcaman/concurrent-map v0.0.0-20190314100340-2693aad1ed75

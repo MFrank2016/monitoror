@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monitoror/monitoror/config"
 	"github.com/monitoror/monitoror/models"
 	monitorableConfig "github.com/monitoror/monitoror/monitorable/config"
 	"github.com/monitoror/monitoror/pkg/monitoror/builder"
@@ -28,19 +27,19 @@ const (
 	EmptyTileType models.TileType = "EMPTY"
 	GroupTileType models.TileType = "GROUP"
 
-	DynamicTileStoreKeyPrefix = "monitoror.config.dynamicTile.key"
+	MetaTileStoreKeyPrefix = "monitoror.config.metaTile.key"
 )
 
 type (
 	configUsecase struct {
 		repository monitorableConfig.Repository
 
-		tileConfigs        map[models.TileType]map[string]*TileConfig
-		dynamicTileConfigs map[models.TileType]map[string]*DynamicTileConfig
+		tileConfigs     map[models.TileType]map[string]*TileConfig
+		metaTileConfigs map[models.TileType]map[string]*MetaTileConfig
 
-		// jobs cache. used in case of timeout
-		dynamicTileStore          cache.Store
-		downstreamStoreExpiration time.Duration
+		// meta tile cache. used in case of timeout
+		metaTileStore   cache.Store
+		cacheExpiration time.Duration
 	}
 
 	// TileConfig struct is used by GetConfig endpoint to check / hydrate config
@@ -50,10 +49,10 @@ type (
 		InitialMaxDelay int
 	}
 
-	// DynamicTileConfig struct is used by GetConfig endpoint to check / hydrate config
-	DynamicTileConfig struct {
+	// MetaTileConfig struct is used by GetConfig endpoint to check / hydrate config
+	MetaTileConfig struct {
 		Validator utils.Validator
-		Builder   builder.DynamicTileBuilder
+		Builder   builder.MetaTileBuilder
 	}
 )
 
@@ -64,24 +63,18 @@ func NewConfigUsecase(repository monitorableConfig.Repository, store cache.Store
 	tileConfigs[EmptyTileType] = nil
 	tileConfigs[GroupTileType] = nil
 
-	dynamicTileConfigs := make(map[models.TileType]map[string]*DynamicTileConfig)
+	dynamicTileConfigs := make(map[models.TileType]map[string]*MetaTileConfig)
 
 	return &configUsecase{
-		repository:                repository,
-		tileConfigs:               tileConfigs,
-		dynamicTileConfigs:        dynamicTileConfigs,
-		dynamicTileStore:          store,
-		downstreamStoreExpiration: time.Millisecond * time.Duration(downstreamStoreExpiration),
+		repository:      repository,
+		tileConfigs:     tileConfigs,
+		metaTileConfigs: dynamicTileConfigs,
+		metaTileStore:   store,
+		cacheExpiration: time.Millisecond * time.Duration(downstreamStoreExpiration),
 	}
 }
 
 func (cu *configUsecase) RegisterTile(
-	tileType models.TileType, clientConfigValidator utils.Validator, path string, initialMaxDelay int,
-) {
-	cu.RegisterTileWithConfigVariant(tileType, config.DefaultVariant, clientConfigValidator, path, initialMaxDelay)
-}
-
-func (cu *configUsecase) RegisterTileWithConfigVariant(
 	tileType models.TileType, variant string, clientConfigValidator utils.Validator, path string, initialMaxDelay int,
 ) {
 	value, exists := cu.tileConfigs[tileType]
@@ -97,24 +90,26 @@ func (cu *configUsecase) RegisterTileWithConfigVariant(
 	}
 }
 
-func (cu *configUsecase) RegisterDynamicTile(tileType models.TileType, clientConfigValidator utils.Validator, builder builder.DynamicTileBuilder) {
-	cu.RegisterDynamicTileWithConfigVariant(tileType, config.DefaultVariant, clientConfigValidator, builder)
-}
-
-func (cu *configUsecase) RegisterDynamicTileWithConfigVariant(tileType models.TileType, variant string, clientConfigValidator utils.Validator, builder builder.DynamicTileBuilder) {
+func (cu *configUsecase) RegisterMetaTile(
+	tileType models.TileType, variant string, clientConfigValidator utils.Validator, builder builder.MetaTileBuilder,
+) {
 	// Used for authorized type
 	cu.tileConfigs[tileType] = nil
 
-	value, exists := cu.dynamicTileConfigs[tileType]
+	value, exists := cu.metaTileConfigs[tileType]
 	if !exists {
-		value = make(map[string]*DynamicTileConfig)
+		value = make(map[string]*MetaTileConfig)
 	}
 
-	value[variant] = &DynamicTileConfig{
+	value[variant] = &MetaTileConfig{
 		Validator: clientConfigValidator,
 		Builder:   builder,
 	}
-	cu.dynamicTileConfigs[tileType] = value
+	cu.metaTileConfigs[tileType] = value
+}
+
+func (cu *configUsecase) DisableTile(tileType models.TileType, variant string) {
+	// TODO
 }
 
 // --- Utility functions ---

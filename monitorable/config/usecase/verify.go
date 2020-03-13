@@ -219,9 +219,9 @@ func (cu *configUsecase) verifyTile(configBag *models.ConfigBag, tile *models.Ti
 
 	// Get the validator for current tile
 	// - for non dynamic tile, the validator is register in tileConfigs
-	// - for dynamic tile, the validator is register in dynamicTileConfigs
+	// - for dynamic tile, the validator is register in metaTileConfigs
 	var validator utils.Validator
-	if _, exists := cu.dynamicTileConfigs[tile.Type]; !exists {
+	if _, exists := cu.metaTileConfigs[tile.Type]; !exists {
 		tileConfig, exists := cu.tileConfigs[tile.Type][tile.ConfigVariant]
 		if !exists {
 			configBag.AddErrors(models.ConfigError{
@@ -238,12 +238,12 @@ func (cu *configUsecase) verifyTile(configBag *models.ConfigBag, tile *models.Ti
 		}
 		validator = tileConfig.Validator
 	} else {
-		dynamicTileConfig, exists := cu.dynamicTileConfigs[tile.Type][tile.ConfigVariant]
+		dynamicTileConfig, exists := cu.metaTileConfigs[tile.Type][tile.ConfigVariant]
 		if !exists {
 			configBag.AddErrors(models.ConfigError{
 				ID: models.ConfigErrorUnknownVariant,
 				Message: fmt.Sprintf(`Unknown "%s" variant for %s dynamic type in tile definition. Must be %s`,
-					tile.ConfigVariant, tile.Type, keys(cu.dynamicTileConfigs[tile.Type])),
+					tile.ConfigVariant, tile.Type, keys(cu.metaTileConfigs[tile.Type])),
 				Data: models.ConfigErrorData{
 					FieldName:     "configVariant",
 					Value:         stringify(tile.ConfigVariant),

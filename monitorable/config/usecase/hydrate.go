@@ -27,7 +27,7 @@ func (cu *configUsecase) hydrateTiles(configBag *models.ConfigBag, tiles *[]mode
 			}
 		}
 
-		if _, exists := cu.dynamicTileConfigs[tile.Type]; !exists {
+		if _, exists := cu.metaTileConfigs[tile.Type]; !exists {
 			cu.hydrateTile(configBag, tile)
 
 			if tile.Type == GroupTileType && len(tile.Tiles) == 0 {
@@ -82,7 +82,7 @@ func (cu *configUsecase) hydrateTile(configBag *models.ConfigBag, tile *models.T
 }
 
 func (cu *configUsecase) hydrateDynamicTile(configBag *models.ConfigBag, tile *models.Tile) []models.Tile {
-	dynamicTileConfig := cu.dynamicTileConfigs[tile.Type][tile.ConfigVariant]
+	dynamicTileConfig := cu.metaTileConfigs[tile.Type][tile.ConfigVariant]
 
 	// Create new validator by reflexion
 	rType := reflect.TypeOf(dynamicTileConfig.Validator)
@@ -93,12 +93,12 @@ func (cu *configUsecase) hydrateDynamicTile(configBag *models.ConfigBag, tile *m
 	_ = json.Unmarshal(bParams, &rInstance)
 
 	// Call builder and add inherited value from Dynamic tile
-	cacheKey := fmt.Sprintf("%s:%s_%s_%s", DynamicTileStoreKeyPrefix, tile.Type, tile.ConfigVariant, string(bParams))
-	results, err := dynamicTileConfig.Builder.ListDynamicTile(rInstance)
+	cacheKey := fmt.Sprintf("%s:%s_%s_%s", MetaTileStoreKeyPrefix, tile.Type, tile.ConfigVariant, string(bParams))
+	results, err := dynamicTileConfig.Builder(rInstance)
 	if err != nil {
 		if os.IsTimeout(err) {
 			// Get previous value in cache
-			if err := cu.dynamicTileStore.Get(cacheKey, &results); err != nil {
+			if err := cu.metaTileStore.Get(cacheKey, &results); err != nil {
 				configBag.AddErrors(models.ConfigError{
 					ID:      models.ConfigErrorUnableToHydrate,
 					Message: fmt.Sprintf(`Error while listing %s dynamic tiles (params: %s). Timeout or host unreachable`, tile.Type, string(bParams)),
@@ -118,7 +118,7 @@ func (cu *configUsecase) hydrateDynamicTile(configBag *models.ConfigBag, tile *m
 		}
 	} else {
 		// Add result in cache
-		_ = cu.dynamicTileStore.Set(cacheKey, results, cu.downstreamStoreExpiration)
+		_ = cu.metaTileStore.Set(cacheKey, results, cu.cacheExpiration)
 	}
 
 	var tiles []models.Tile
